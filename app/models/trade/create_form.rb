@@ -14,6 +14,8 @@ class Trade::CreateForm
       create_interest_income
     when "deposit", "withdrawal"
       create_transfer
+    when "fee"
+      create_fee
     end
   end
 
@@ -108,4 +110,24 @@ class Trade::CreateForm
 
       entry
     end
+
+    def create_fee
+      signed_amount = amount.to_d
+
+      entry = account.entries.build(
+        name: "Account fee payment",
+        date: date,
+        amount: signed_amount,
+        currency: currency,
+        entryable: Transaction.new
+      )
+
+      if entry.save
+        entry.lock_saved_attributes!
+        account.sync_later
+      end
+
+      entry
+    end
+
 end
