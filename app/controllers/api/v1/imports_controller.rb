@@ -68,6 +68,7 @@ class Api::V1::ImportsController < Api::V1::BaseController
     type = params[:type].to_s
     type = "TransactionImport" unless Import::TYPES.include?(type)
     return create_sure_import(family) if type == "SureImport"
+    return create_pdf_import(family, params[:file]) if type == "PdfImport" || pdf_upload?(params[:file])
 
     # 2. Build the import object with permitted config attributes
     @import = family.imports.build(import_config_params.merge(type: type))
@@ -217,6 +218,87 @@ class Api::V1::ImportsController < Api::V1::BaseController
 
     def preflight_params
       params.permit(*Import::Preflight::PARAM_KEYS)
+    end
+
+    # PDF statements take the same path as the web uploader
+    # (ImportsController#create_pdf_import): an AccountStatement plus a PdfImport,
+    # with AI extraction queued. Both go through PdfImport.create_from_upload! so
+    # duplicate handling behaves identically - a statement the caller can manage is
+    # reused (200, same import id), one they cannot is refused (409).
+    def create_pdf_import(family, file)
+      user = current_resource_owner
+
+      unless AccountStatement.statement_manager?(user)
+        return render json: {
+          error: "forbidden",
+          message: "You do not have permission to upload statements."
+        }, status: :forbidden
+      end
+
+      if file.blank?
+        return render json: {
+          error: "missing_content",
+          message: "A PDF file is required for a PdfImport."
+        }, status: :unprocessable_entity
+      end
+
+      unless pdf_upload?(file)
+        return render json: {
+          error: "invalid_file_type",
+          message: "Invalid file type. Please upload a PDF file."
+        }, status: :unprocessable_entity
+      end
+
+      if file.size > Import::MAX_PDF_SIZE
+        return render json: {
+          error: "file_too_large",
+          message: "File is too large. Maximum size is #{Import::MAX_PDF_SIZE / 1.megabyte}MB."
+        }, status: :unprocessable_entity
+      end
+
+      account = nil
+      if params[:account_id].present?
+        account = user.accessible_accounts.find_by(id: params[:account_id])
+        return render json: { error: "not_found", message: "Account not found" }, status: :not_found unless account
+      end
+
+      pdf_import = PdfImport.create_from_upload!(family: family, file: file, user: user)
+      # Read before anything saves the record again: a reused import (same PDF
+      # uploaded before) answers 200 with its existing id rather than 201.
+      created = pdf_import.previously_new_record?
+
+      if account && pdf_import.account_id != account.id && !pdf_import.assign_account!(account)
+        return render json: {
+          error: "account_locked",
+          message: "This statement has already been imported and cannot be moved to another account.",
+          import_id: pdf_import.id
+        }, status: :conflict
+      end
+
+      pdf_import.process_with_ai_later
+
+      @import = pdf_import
+      render :show, status: (created ? :created : :ok)
+    rescue AccountStatement::DuplicateUploadError => e
+      render json: {
+        error: "duplicate_statement",
+        message: "This PDF is already stored as a statement you cannot access.",
+        account_statement_id: e.statement.id
+      }, status: :conflict
+    rescue AccountStatement::InvalidUploadError
+      render json: {
+        error: "invalid_pdf",
+        message: "The uploaded file is not a valid PDF."
+      }, status: :unprocessable_entity
+    end
+
+    def pdf_upload?(file)
+      return false unless file.respond_to?(:content_type) && file.respond_to?(:read)
+      return false unless Import::ALLOWED_PDF_MIME_TYPES.include?(file.content_type)
+
+      header = file.read(5)
+      file.rewind
+      header.to_s.start_with?("%PDF-")
     end
 
     def create_sure_import(family)

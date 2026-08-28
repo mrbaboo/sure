@@ -1377,6 +1377,162 @@ class Api::V1::ImportsControllerTest < ActionDispatch::IntegrationTest
     assert_response :created
   end
 
+  # --- PdfImport ---------------------------------------------------------------
+
+  test "should create PdfImport from uploaded PDF and queue AI processing" do
+    assert_difference [ "AccountStatement.count", "Import.where(type: 'PdfImport').count" ], 1 do
+      assert_enqueued_with(job: ProcessPdfJob) do
+        post api_v1_imports_url,
+             params: { type: "PdfImport", file: pdf_statement_upload },
+             headers: api_headers(@api_key)
+      end
+    end
+
+    assert_response :created
+    json_response = JSON.parse(response.body)
+    import = PdfImport.find(json_response["data"]["id"])
+    assert_equal "PdfImport", json_response["data"]["type"]
+    assert_equal "importing", json_response["data"]["status"]
+    assert_equal AccountStatement.order(:created_at).last, import.account_statement
+    assert_not import.pdf_file.attached?
+  end
+
+  test "should detect a PDF upload without an explicit type" do
+    assert_difference "Import.where(type: 'PdfImport').count", 1 do
+      post api_v1_imports_url,
+           params: { file: pdf_statement_upload },
+           headers: api_headers(@api_key)
+    end
+
+    assert_response :created
+    assert_equal "PdfImport", JSON.parse(response.body)["data"]["type"]
+  end
+
+  test "should link PdfImport to an accessible account when account_id is given" do
+    post api_v1_imports_url,
+         params: { type: "PdfImport", file: pdf_statement_upload, account_id: @account.id },
+         headers: api_headers(@api_key)
+
+    assert_response :created
+    import = PdfImport.find(JSON.parse(response.body)["data"]["id"])
+    assert_equal @account, import.account
+    assert_equal @account, import.account_statement.account
+  end
+
+  test "should reject PdfImport for an account outside the family" do
+    other_family = Family.create!(name: "Other Family", currency: "USD")
+    other_account = other_family.accounts.create!(
+      name: "Other Checking",
+      balance: 0,
+      currency: "USD",
+      accountable: Depository.new
+    )
+
+    assert_no_difference "Import.count" do
+      post api_v1_imports_url,
+           params: { type: "PdfImport", file: pdf_statement_upload, account_id: other_account.id },
+           headers: api_headers(@api_key)
+    end
+
+    assert_response :not_found
+  end
+
+  test "should reuse the existing import when the same PDF is uploaded again" do
+    post api_v1_imports_url,
+         params: { type: "PdfImport", file: pdf_statement_upload },
+         headers: api_headers(@api_key)
+    assert_response :created
+    first_id = JSON.parse(response.body)["data"]["id"]
+
+    assert_no_difference [ "AccountStatement.count", "Import.count" ] do
+      post api_v1_imports_url,
+           params: { type: "PdfImport", file: pdf_statement_upload },
+           headers: api_headers(@api_key)
+    end
+
+    assert_response :ok
+    assert_equal first_id, JSON.parse(response.body)["data"]["id"]
+  end
+
+  test "should reject PdfImport with read-only API key" do
+    assert_no_difference "Import.count" do
+      post api_v1_imports_url,
+           params: { type: "PdfImport", file: pdf_statement_upload },
+           headers: api_headers(@read_only_api_key)
+    end
+
+    assert_response :forbidden
+    assert_equal "insufficient_scope", JSON.parse(response.body)["error"]
+  end
+
+  test "should reject PdfImport from a user who cannot manage statements" do
+    guest = users(:intro_user)
+    guest_key = ApiKey.create!(
+      user: guest,
+      name: "Guest Key",
+      scopes: [ "read_write" ],
+      display_key: "test_guest_#{SecureRandom.hex(8)}",
+      source: "web"
+    )
+    Redis.new.del("api_rate_limit:#{guest_key.id}")
+
+    assert_no_difference [ "AccountStatement.count", "Import.count" ] do
+      assert_no_enqueued_jobs only: ProcessPdfJob do
+        post api_v1_imports_url,
+             params: { type: "PdfImport", file: pdf_statement_upload },
+             headers: api_headers(guest_key)
+      end
+    end
+
+    assert_response :forbidden
+    assert_equal "forbidden", JSON.parse(response.body)["error"]
+  ensure
+    guest_key&.destroy
+  end
+
+  test "should reject PdfImport without a file" do
+    assert_no_difference "Import.count" do
+      post api_v1_imports_url, params: { type: "PdfImport" }, headers: api_headers(@api_key)
+    end
+
+    assert_response :unprocessable_entity
+    assert_equal "missing_content", JSON.parse(response.body)["error"]
+  end
+
+  test "should reject PdfImport whose bytes are not a PDF" do
+    not_a_pdf = Rack::Test::UploadedFile.new(
+      StringIO.new("date,amount\n2024-01-01,1.00"),
+      "application/pdf",
+      original_filename: "statement.pdf"
+    )
+
+    assert_no_difference "Import.count" do
+      post api_v1_imports_url,
+           params: { type: "PdfImport", file: not_a_pdf },
+           headers: api_headers(@api_key)
+    end
+
+    assert_response :unprocessable_entity
+    assert_equal "invalid_file_type", JSON.parse(response.body)["error"]
+  end
+
+  test "should reject PdfImport that is too large" do
+    big = Rack::Test::UploadedFile.new(
+      StringIO.new("%PDF-1.4\n" + ("x" * (Import::MAX_PDF_SIZE + 1))),
+      "application/pdf",
+      original_filename: "huge.pdf"
+    )
+
+    assert_no_difference "Import.count" do
+      post api_v1_imports_url,
+           params: { type: "PdfImport", file: big },
+           headers: api_headers(@api_key)
+    end
+
+    assert_response :unprocessable_entity
+    assert_equal "file_too_large", JSON.parse(response.body)["error"]
+  end
+
   private
 
     def build_ndjson(records)
@@ -1385,5 +1541,9 @@ class Api::V1::ImportsControllerTest < ActionDispatch::IntegrationTest
 
     def api_headers(api_key)
       { "X-Api-Key" => api_key.plain_key }
+    end
+
+    def pdf_statement_upload
+      file_fixture_upload("imports/sample_bank_statement.pdf", "application/pdf")
     end
 end

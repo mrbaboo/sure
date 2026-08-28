@@ -5293,7 +5293,11 @@ paths:
     post:
       summary: Create import
       description: Create a new import from raw CSV content, inline Sure NDJSON content,
-        or an uploaded Sure NDJSON file. CSV content is limited to 10MB.
+        an uploaded Sure NDJSON file, or an uploaded PDF bank/credit-card statement.
+        CSV content is limited to 10MB; PDFs to 25MB. A PDF creates a PdfImport, stores
+        the statement and queues AI extraction - poll GET /api/v1/imports/{id} until
+        its status is pending (rows ready for review), complete or failed. Uploading
+        a PDF the caller has already stored returns 200 with the existing import.
       tags:
       - Imports
       security:
@@ -5314,6 +5318,19 @@ paths:
                 oneOf:
                 - "$ref": "#/components/schemas/ErrorResponse"
                 - "$ref": "#/components/schemas/ErrorResponseWithImportId"
+        '403':
+          description: statement uploads need a family admin or member
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/ErrorResponse"
+        '409':
+          description: PDF already stored as a statement the caller cannot access,
+            or the existing import is published and cannot move to account_id
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/ErrorResponse"
         '500':
           description: import uploaded but publish enqueue failed
           content:
@@ -5442,6 +5459,12 @@ paths:
                   description: Raw CSV or Sure NDJSON content as a string. CSV content
                     is limited to 10MB. Required for SureImport unless a multipart
                     file is uploaded.
+                file:
+                  type: string
+                  format: binary
+                  description: Multipart upload - a CSV, a Sure NDJSON export, or a
+                    PDF bank/credit-card statement (application/pdf, max 25MB). A PDF
+                    creates a PdfImport regardless of type.
                 type:
                   type: string
                   enum:

@@ -123,7 +123,7 @@ RSpec.describe 'API V1 Imports', type: :request do
     end
 
     post 'Create import' do
-      description 'Create a new import from raw CSV content, inline Sure NDJSON content, or an uploaded Sure NDJSON file. CSV content is limited to 10MB.'
+      description 'Create a new import from raw CSV content, inline Sure NDJSON content, an uploaded Sure NDJSON file, or an uploaded PDF bank/credit-card statement. CSV content is limited to 10MB; PDFs to 25MB. A PDF creates a PdfImport, stores the statement and queues AI extraction - poll GET /api/v1/imports/{id} until its status is pending (rows ready for review), complete or failed. Uploading a PDF the caller has already stored returns 200 with the existing import.'
       tags 'Imports'
       security [ { apiKeyAuth: [] } ]
       consumes 'application/json', 'multipart/form-data'
@@ -262,6 +262,31 @@ RSpec.describe 'API V1 Imports', type: :request do
             type: 'TransactionImport'
           }
         end
+
+        run_test!
+      end
+
+      response '403', 'statement uploads need a family admin or member' do
+        schema '$ref' => '#/components/schemas/ErrorResponse'
+
+        let(:guest) do
+          family.users.create!(
+            email: 'api-guest@example.com',
+            password: 'password123',
+            password_confirmation: 'password123',
+            role: 'guest'
+          )
+        end
+        let(:'X-Api-Key') do
+          ApiKey.create!(
+            user: guest,
+            name: 'Guest Docs Key',
+            key: ApiKey.generate_secure_key,
+            scopes: %w[read_write],
+            source: 'web'
+          ).plain_key
+        end
+        let(:body) { { type: 'PdfImport' } }
 
         run_test!
       end
