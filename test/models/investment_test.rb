@@ -44,17 +44,21 @@ class InvestmentTest < ActiveSupport::TestCase
   # UK account types
 
   test "tax_treatment returns tax_exempt for UK ISA accounts" do
-    %w[isa lisa].each do |subtype|
+    %w[isa lisa junior_isa innovative_finance_isa child_trust_fund].each do |subtype|
       investment = Investment.new(subtype: subtype)
       assert_equal :tax_exempt, investment.tax_treatment, "Expected #{subtype} to be tax_exempt"
     end
   end
 
   test "tax_treatment returns tax_deferred for UK pension accounts" do
-    %w[sipp workplace_pension_uk].each do |subtype|
+    %w[sipp junior_sipp workplace_pension_uk].each do |subtype|
       investment = Investment.new(subtype: subtype)
       assert_equal :tax_deferred, investment.tax_treatment, "Expected #{subtype} to be tax_deferred"
     end
+  end
+
+  test "tax_treatment returns taxable for UK general investment accounts" do
+    assert_equal :taxable, Investment.new(subtype: "gia").tax_treatment
   end
 
   # Canadian account types

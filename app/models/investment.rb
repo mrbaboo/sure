@@ -27,8 +27,13 @@ class Investment < ApplicationRecord
     # === United Kingdom ===
     "isa" => { short: "ISA", long: "Individual Savings Account", region: "uk", tax_treatment: :tax_exempt },
     "lisa" => { short: "LISA", long: "Lifetime ISA", region: "uk", tax_treatment: :tax_exempt },
+    "junior_isa" => { short: "JISA", long: "Junior ISA", region: "uk", tax_treatment: :tax_exempt },
+    "innovative_finance_isa" => { short: "IF ISA", long: "Innovative Finance ISA", region: "uk", tax_treatment: :tax_exempt },
+    "child_trust_fund" => { short: "CTF", long: "Child Trust Fund", region: "uk", tax_treatment: :tax_exempt },
     "sipp" => { short: "SIPP", long: "Self-Invested Personal Pension", region: "uk", tax_treatment: :tax_deferred },
+    "junior_sipp" => { short: "Junior SIPP", long: "Junior SIPP", region: "uk", tax_treatment: :tax_deferred },
     "workplace_pension_uk" => { short: "Pension", long: "Workplace Pension", region: "uk", tax_treatment: :tax_deferred },
+    "gia" => { short: "GIA", long: "General Investment Account", region: "uk", tax_treatment: :taxable },
 
     # === Canada ===
     "tfsa" => { short: "TFSA", long: "Tax-Free Savings Account", region: "ca", tax_treatment: :tax_exempt },

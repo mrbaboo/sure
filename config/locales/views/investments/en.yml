@@ -64,12 +64,27 @@ en:
       lisa:
         short: LISA
         long: Lifetime ISA
+      junior_isa:
+        short: JISA
+        long: Junior ISA
+      innovative_finance_isa:
+        short: IF ISA
+        long: Innovative Finance ISA
+      child_trust_fund:
+        short: CTF
+        long: Child Trust Fund
       sipp:
         short: SIPP
         long: Self-Invested Personal Pension
+      junior_sipp:
+        short: Junior SIPP
+        long: Junior SIPP
       workplace_pension_uk:
         short: Pension
         long: Workplace Pension
+      gia:
+        short: GIA
+        long: General Investment Account
       # Canada
       rrsp:
         short: RRSP
