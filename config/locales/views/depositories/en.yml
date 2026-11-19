@@ -12,18 +12,30 @@ en:
       cash:
         long: Cash
         short: Cash
+      cash_isa:
+        long: Cash ISA
+        short: Cash ISA
+      cash_lisa:
+        long: Cash Lifetime ISA
+        short: Cash LISA
       cd:
         long: Certificate of Deposit
         short: CD
       checking:
         long: Checking
         short: Checking
+      fixed_rate_bond:
+        long: Fixed-Rate Bond
+        short: Fixed Bond
       hsa:
         long: Health Savings Account
         short: HSA
       money_market:
         long: Money Market
         short: MM
+      premium_bonds:
+        long: NS&I Premium Bonds
+        short: Premium Bonds
       savings:
         long: Savings
         short: Savings

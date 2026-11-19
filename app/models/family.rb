@@ -928,7 +928,7 @@ class Family < ApplicationRecord
 
     # Mirrors the inline `investment_ids` / `crypto_ids` SQL blocks in
     # `tax_advantaged_account_ids`. Joins `depositories` and filters by
-    # `Depository::TAX_ADVANTAGED_SUBTYPES` (currently `%w[hsa]`). Extracted
+    # `Depository::TAX_ADVANTAGED_SUBTYPES`. Extracted
     # rather than inlined because the existing two blocks are already long
     # enough; the extraction keeps `tax_advantaged_account_ids` readable.
     def tax_advantaged_depository_account_ids

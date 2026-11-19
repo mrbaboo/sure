@@ -736,6 +736,13 @@ class AccountTest < ActiveSupport::TestCase
     assert_not hsa_depository.taxable?
   end
 
+  test "UK tax-free cash subtypes are tax-advantaged; fixed-rate bonds are not" do
+    %w[cash_isa cash_lisa premium_bonds].each do |subtype|
+      assert_equal :tax_advantaged, Depository.new(subtype: subtype).tax_treatment, "Expected #{subtype} to be tax_advantaged"
+    end
+    assert_nil Depository.new(subtype: "fixed_rate_bond").tax_treatment
+  end
+
   test "tax_advantaged? returns false for taxable accounts" do
     investment = Investment.new(subtype: "brokerage")
     account = @family.accounts.create!(

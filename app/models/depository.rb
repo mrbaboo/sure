@@ -9,7 +9,11 @@ class Depository < ApplicationRecord
     "savings" => { short: "Savings", long: "Savings" },
     "hsa" => { short: "HSA", long: "Health Savings Account" },
     "cd" => { short: "CD", long: "Certificate of Deposit" },
-    "money_market" => { short: "MM", long: "Money Market" }
+    "money_market" => { short: "MM", long: "Money Market" },
+    "cash_isa" => { short: "Cash ISA", long: "Cash ISA" },
+    "cash_lisa" => { short: "Cash LISA", long: "Cash Lifetime ISA" },
+    "premium_bonds" => { short: "Premium Bonds", long: "NS&I Premium Bonds" },
+    "fixed_rate_bond" => { short: "Fixed Bond", long: "Fixed-Rate Bond" }
   }.freeze
 
   # Depository subtypes that carry tax-advantaged treatment in the budget /
@@ -18,7 +22,8 @@ class Depository < ApplicationRecord
   # `depository.hsa` to `Depository` (not `Investment`) via
   # `PlaidAccount::TypeMappable`, so a real-world Plaid-linked HSA cash account
   # was previously invisible to the tax-advantaged filter PR #724 introduced.
-  TAX_ADVANTAGED_SUBTYPES = %w[hsa].freeze
+  # UK Cash ISAs, Cash LISAs and Premium Bonds are tax-free savings wrappers.
+  TAX_ADVANTAGED_SUBTYPES = %w[hsa cash_isa cash_lisa premium_bonds].freeze
 
   # `TaxTreatable` (the `Account` concern) reads this via `respond_to?` so
   # adding it here transparently flips `Account#tax_advantaged?` for HSA
