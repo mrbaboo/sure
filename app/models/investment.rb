@@ -25,7 +25,7 @@ class Investment < ApplicationRecord
     "utma" => { short: "UTMA", long: "UTMA Custodial Account", region: "us", tax_treatment: :taxable },
 
     # === United Kingdom ===
-    "isa" => { short: "ISA", long: "Individual Savings Account", region: "uk", tax_treatment: :tax_exempt },
+    "isa" => { short: "S&S ISA", long: "Stocks & Shares ISA", region: "uk", tax_treatment: :tax_exempt },
     "lisa" => { short: "LISA", long: "Lifetime ISA", region: "uk", tax_treatment: :tax_exempt },
     "junior_isa" => { short: "JISA", long: "Junior ISA", region: "uk", tax_treatment: :tax_exempt },
     "innovative_finance_isa" => { short: "IF ISA", long: "Innovative Finance ISA", region: "uk", tax_treatment: :tax_exempt },

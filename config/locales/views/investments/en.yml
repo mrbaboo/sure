@@ -59,8 +59,8 @@ en:
         long: UTMA Custodial Account
       # United Kingdom
       isa:
-        short: ISA
-        long: Individual Savings Account
+        short: S&S ISA
+        long: Stocks & Shares ISA
       lisa:
         short: LISA
         long: Lifetime ISA
